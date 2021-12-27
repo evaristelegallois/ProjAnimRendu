@@ -1,0 +1,19 @@
+/* THIEL Samantha, PAREL Gabriel - TP5 Animation et rendu (10/11/21) */
+
+body {
+ margin : 0px;
+ padding: 0px;
+ overflow: hidden;
+}
+#info {
+ font-family: arial;
+ background-color : rgba(0,0,0,0.5);
+ color: white;
+ position: absolute;
+ left : 10px;
+ bottom: 10px;
+ width : 200px;
+ padding : 1em;
+ z-index: 100; /*permet de faire en sorte que le <div> avec l'id #info
+ // apparaisse par dessus la balise <canvas> de WebGL*/
+}
