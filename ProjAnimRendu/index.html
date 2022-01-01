@@ -30,7 +30,9 @@
 			let container, stats;
 			let camera, controls, scene, renderer;
 			let textureLoader;
-			let axesHelper, gridHelper; //grid, axes
+			let axesHelper, gridHelper; //display grid, axes
+			let droneNames, vertLines; //display names, lines
+			let droneTrajectories; //display trajectories
 			const clock = new THREE.Clock();
 			let clickRequest = false;
 			const mouseCoords = new THREE.Vector2();
@@ -45,7 +47,7 @@
 			let physicsWorld;
 			const rigidBodies = [];
 			const softBodies = [];
-			const drones = [];
+			const drones = [], drones3D = [];
 			const waypoints = [], listWaypoints = [];
 			const margin = 0.05;
 			let transformAux1;
@@ -61,11 +63,12 @@
 			} );
 
 			function init() {
+				loadJSON();
 				initGraphics();
 				initPhysics();
 				createObjects();
 				initInput();
-				loadJSON();
+
 			}
 
 			function initGraphics() {
@@ -157,7 +160,7 @@
 				plane.receiveShadow = true;
 				
 				//axes x, y, z
-				axesHelper = new THREE.AxesHelper(5);
+				axesHelper = new THREE.AxesHelper(10);
 				scene.add(axesHelper);
 
 				//grille xoz
@@ -175,7 +178,7 @@
 				scene.background = new THREE.CubeTextureLoader().load( textures_skybox );
 				
 				// autres objets
-				var nbObj = 10;
+				/*var nbObj = 10;
 				var objY = 1.5;
 				var min = -20;
 				var max = 20;
@@ -209,11 +212,23 @@
 					var newCone = createCone( 1., 2., 0.5, pos, quat, coneMaterial );
 					newCone.castShadow = true;
 					newCone.receiveShadow = true;
+				}*/
+				
+				//drones
+				for(i = 0; i < drones.length; i++){
+					
+					var id = drones[i];
+					var position = listWaypoints[i][0];
+					var newDrone = createDrone(id, position);
+					newDrone.castShadow = true;
+					newDrone.receiveShadow = true;
+					//drones3D.push(newDrone);
 				}
+				
 			}
 
 			function processGeometry( bufGeometry ) {
-				// Ony consider the position values when merging the vertices
+				// Only consider the position values when merging the vertices
 				const posOnlyBufGeometry = new THREE.BufferGeometry();
 				posOnlyBufGeometry.setAttribute( 'position', bufGeometry.getAttribute( 'position' ) );
 				posOnlyBufGeometry.setIndex( bufGeometry.getIndex() );
@@ -357,6 +372,21 @@
 
 				return threeObject;
 			}
+			
+			function createDrone(id, position) {
+		
+				const loader = new THREE.TextureLoader();
+				const droneMaterial = new THREE.MeshLambertMaterial({
+				  map: loader.load("objets/drone.png")
+				});
+				
+				//createParalellepiped()
+				var newDrone = createParalellepiped( 1., 2., 0.5, position, quat, droneMaterial);
+				newDrone.castShadow = true;
+				newDrone.receiveShadow = true;
+				
+				return newDrone;
+			}
 
 			function createRigidBody( threeObject, physicsShape, mass, pos, quat ) {
 
@@ -401,18 +431,8 @@
 				return new THREE.MeshPhongMaterial( { color: createRandomColor() } );
 			}
 			
-			function createADrone(id, position) {
-			
-				//createParalellepiped()
-				//texture test; to use in drawADrone
-				const loader = new THREE.TextureLoader();
-				const materialT = new THREE.MeshLambertMaterial({
-				  map: loader.load("objets/skybox/xp.jpg")
-				});
-			}
-			
 			//draws a line between two points; THREE.Vector3
-			function drawALine(p1, p2) {
+			function drawLine(p1, p2) {
 			
 				//create a blue LineBasicMaterial
 				const material = new THREE.LineBasicMaterial( { color: 0x0000ff } );
@@ -535,7 +555,7 @@
 					}
 					geometry.attributes.position.needsUpdate = true;
 					geometry.attributes.normal.needsUpdate = true;
-				}
+				}*/
 
 				// Update rigid bodies
 				for ( let i = 0, il = rigidBodies.length; i < il; i ++ ) {
@@ -551,40 +571,29 @@
 						objThree.position.set( p.x(), p.y(), p.z() );
 						objThree.quaternion.set( q.x(), q.y(), q.z(), q.w() );
 					}
-				}*/
+				}
 				
 				// Update drone positions
-				for ( let i = 0, il = rigidBodies.length; i < il; i ++ ) {
+				/*console.log(drones3D.length);
+				for ( let i = 0, il = drones3D.length; i < il; i ++ ) {
 
-					const objThree = rigidBodies[ i ];
+					const objThree = drones3D[ i ];
 					const objPhys = objThree.userData.physicsBody;
 					const ms = objPhys.getMotionState();
 					
 					if ( ms ) {
 
-						//alert("yo bitch");
-						/*ms.getWorldTransform( transformAux1 );
+						ms.getWorldTransform( transformAux1 );
 						const p = transformAux1.getOrigin();
 						const q = transformAux1.getRotation();
 						objThree.position.set( p.x(), p.y(), p.z() );
-						objThree.quaternion.set( q.x(), q.y(), q.z(), q.w() );*/
-						/*var x, y, z, w;
-						x = objThree.position.x + 0;
-						y = objThree.position.y + 0;
-						z = objThree.position.z + 0;
-						w = objThree.position.w + 0;
-						
-						if ((x < -20) || (x > 20)) x = -20;
-						if ((y < -20) || (y > 20)) y = -20;
-						if ((z < -20) || (z > 20)) z = -20;
-						
-						//var vec = THREE.Vector3(x, y, z);
-						console.log(objThree.position);
+						objThree.quaternion.set( q.x(), q.y(), q.z(), q.w() );
+
 																								
-						objThree.position.set(x, y, z);
-						objThree.quaternion.set(x, y, z, w);*/
+						//objThree.position.set(x, y, z);
+						//objThree.quaternion.set(x, y, z, w);
 					}
-				}
+				}*/
 			}
 			
 			function handler() {
@@ -595,15 +604,16 @@
 					for ( let i = 0, il = allData.drones.length; i < il; i ++ )
 					{
 						drones.push(allData.drones[i].id);
-						//var position = allData.drones[i].waypoints[0];
-						//to do instead: drones.push(new Drone(id, position));
+						/*var id = allData.drones[i].id;
+						var position = allData.drones[i].waypoints[0];
+						drones.push(createDrone(id, position));*/
 						listWaypoints.push(allData.drones[i].waypoints);
 					}
 			    
 					console.log(drones);
 					console.log(listWaypoints);
 					//important data: listWaypoints.frame[i], listWaypoints.position[i]
-					//position args: alt_Y, lat_Z, lng_X
+					//position args: alt_Y, lat_Z, lng_X //cm
 					
 				} else {
 					console.log("Erreur de lecture");
@@ -639,6 +649,22 @@
 			      if (gridHelper.visible) gridHelper.visible = false;
 			      else gridHelper.visible = true;
 			};
+			
+			//.visible for those doesn't exist so we need to find a workaround later
+			/*function showVertLines() {
+				if (vertLines.visible) vertLines.visible = false;
+				else vertLines.visible = true;
+			};
+
+			function showDroneNames() {
+			      if (droneNames.visible) droneNames.visible = false;
+			      else droneNames.visible = true;
+			};
+			
+			function showDroneTrajectories() {
+			      if (droneTrajectories.visible) droneTrajectories.visible = false;
+			      else droneTrajectories.visible = true;
+			};*/
 
 		       // affichage avec le clavier
 		       window.addEventListener("keydown", function (event) {
