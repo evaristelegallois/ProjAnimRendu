@@ -23,7 +23,6 @@
         <script src="../three.js-master/examples/js/libs/stats.min.js"></script> 
         
         <script src="../ammo.js-main/builds/ammo.js"></script>
-        <script src="../three.js-master/examples/js/effects/AnaglyphEffect.js"></script>
         
         <script>
             // Graphics variables
@@ -37,17 +36,15 @@
 			const drones = [], drones3D = [];
 			var json_file;
 			const waypoints = [], listWaypoints = [];
-			var array = new Array();
+			var drones_objects = new Array();
             var wayStep = new Array();
             
 			const clock = new THREE.Clock();
 			let clickRequest = false;
 			const mouseCoords = new THREE.Vector2();
 			const raycaster = new THREE.Raycaster();
-			const ballMaterial = new THREE.MeshPhongMaterial( { color: 0x202020 } );
 			const pos = new THREE.Vector3();
 			const quat = new THREE.Quaternion();
-			let effect;
 
 			// Physics variables
 			const gravityConstant = -9.8;
@@ -56,25 +53,23 @@
 			const softBodies = [];
 			const margin = 0.05;
 			let transformAux1;
-			let cloth;
 			let softBodyHelpers;
 
-			Ammo().then( function ( AmmoLib ) {
-
+			Ammo().then( function ( AmmoLib ) 
+			{
 				Ammo = AmmoLib;
 				init();
 				animate();
-
 			} );
 
-			function init() {
+			function init() 
+			{
 				var client = new XMLHttpRequest();
 				client.onload = handler;
 				client.responseType = 'json';
 				client.open("GET", "waypoints.json");
 				client.send();
 				
-				//loadJSON();
 				initGraphics();
 				initPhysics();
 				createObjects();
@@ -82,8 +77,8 @@
 
 			}
 
-			function initGraphics() {
-
+			function initGraphics() 
+			{
 				container = document.getElementById( 'container' );
 
 				camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.2, 2000 );
@@ -129,14 +124,12 @@
 				stats.domElement.style.position = 'absolute';
 				stats.domElement.style.top = '0px';
 				container.appendChild( stats.domElement );
-
-
+				
 				window.addEventListener( 'resize', onWindowResize );
-
 			}
 
-			function initPhysics() {
-
+			function initPhysics() 
+			{
 				// Physics configuration
 				const collisionConfiguration = new Ammo.btSoftBodyRigidBodyCollisionConfiguration();
 				const dispatcher = new Ammo.btCollisionDispatcher( collisionConfiguration );
@@ -149,12 +142,11 @@
 
 				transformAux1 = new Ammo.btTransform();
 				softBodyHelpers = new Ammo.btSoftBodyHelpers();
-
 			}
 			
-			/* Créer les objets de la scène */
-			function createObjects() {
-			
+			// Création des objets de la scène
+			function createObjects() 
+			{
 				// plan horizontal (herbe)
 				var texture = new THREE.TextureLoader().load( 'resources/sol.jpg' );
 				texture.wrapS = THREE.RepeatWrapping;
@@ -167,7 +159,6 @@
 				var size = 200;
 				const plane = createParalellepiped( size, 1, size, 0, pos, quat, materialP );
 				scene.add( plane );
-				plane.receiveShadow = true;
 				
 				// axes x, y, z
 				var y = 0.7;
@@ -188,57 +179,10 @@
 					   "objets/skybox/zp.jpg", "objets/skybox/zn.jpg",
 				    ];
 				scene.background = new THREE.CubeTextureLoader().load( textures_skybox );
-				
-				// autres objets
-				/*var nbObj = 10;
-				var objY = 1.5;
-				var min = -20;
-				var max = 20;
-				
-				//texture test; to use in drawADrone
-				const loader = new THREE.TextureLoader();
-				const materialT = new THREE.MeshLambertMaterial({
-				  map: loader.load("objets/skybox/xp.jpg")
-				});
-				
-				var geometryT = new THREE.TorusGeometry();
-				//var materialT = new THREE.TorusTextureLoader().load( textures_skybox );
-				var torus = new THREE.Mesh( geometryT, materialT );
-				scene.add( torus );
-				torus.position.set(0,5,10);
-				
-				// cylindres
-		        	const cylMaterial = new THREE.MeshPhongMaterial( { color: 0xB500BB } );
-                		for(i = 0; i < nbObj; i++){
-				    	pos.set(nbAlea(min,max), objY, nbAlea(min,max));
-					var newCyl = createCylinder( 1., 1., 2., 0.5, pos, quat, cylMaterial );
-					newCyl.castShadow = true;
-					newCyl.receiveShadow = true;
-				}
-                
-				// cônes
-				const coneMaterial = new THREE.MeshPhongMaterial( { color: 0xffffff } );
-				var nbCones = 10;
-				for(i = 0; i < nbObj; i++){
-				   	pos.set(nbAlea(min,max), objY, nbAlea(min,max));
-					var newCone = createCone( 1., 2., 0.5, pos, quat, coneMaterial );
-					newCone.castShadow = true;
-					newCone.receiveShadow = true;
-				}*/
-				
-				//drones
-				/*for(i = 0; i < drones.length; i++){
-					var id = drones[i];
-					var position = listWaypoints[i][0];
-					var newDrone = createDrone(id, position);
-					newDrone.castShadow = true;
-					newDrone.receiveShadow = true;
-					//drones3D.push(newDrone);
-				}*/
 			}
 			
 			
-			/* Chargement des drones à partir du fichier JSON */
+			// Chargement des drones à partir du fichier JSON
 			function loadDrones(){
 			    const lod = new THREE.LOD();
 			    
@@ -260,9 +204,6 @@
 			            for (var i=0; i<json_file.drones.length; i++)
                         {
 	                        var new_object = lod.clone();
-
-	                        console.log(json_file["drones"][i]["waypoints"][0]["position"]);
-
 	                        var x = json_file["drones"][i]["waypoints"][0]["position"]["lng_X"];
 	                        var y = json_file["drones"][i]["waypoints"][0]["position"]["alt_Y"];
 	                        var z = json_file["drones"][i]["waypoints"][0]["position"]["lat_Z"];
@@ -273,36 +214,23 @@
 	                        new_object.position.set( x*0.1, y*0.1, z*0.1 );
 	                        new_object.scale.set(1.2, 1.2, 1.2);
 
-	                        array.push(new_object);
+	                        drones_objects[i] = new_object;
 	                        scene.add(new_object);
-	                        new_object.receiveShadow = true;
+	                        //new_object.receiveShadow = true;
+            				//new_object.castShadow = true;
                         }
             		});
                 });
 
                 // initiation
-                for (var i=0; i<array.length; i++) {
+                for (var i=0; i < json_file.drones.length; i++) 
+                {
 	                wayStep[i] = 0;
                 }
             }
 
-
-
-			function processGeometry( bufGeometry ) {
-				// Only consider the position values when merging the vertices
-				const posOnlyBufGeometry = new THREE.BufferGeometry();
-				posOnlyBufGeometry.setAttribute( 'position', bufGeometry.getAttribute( 'position' ) );
-				posOnlyBufGeometry.setIndex( bufGeometry.getIndex() );
-
-				// Merge the vertices so the triangle soup is converted to indexed triangles
-				const indexedBufferGeom = THREE.BufferGeometryUtils.mergeVertices( posOnlyBufGeometry );
-
-				// Create index arrays mapping the indexed vertices to bufGeometry vertices
-				mapIndices( bufGeometry, indexedBufferGeom );
-
-			}
-
-			function isEqual( x1, y1, z1, x2, y2, z2 ) {
+			function isEqual( x1, y1, z1, x2, y2, z2 ) 
+			{
 				const delta = 0.000001;
 				return Math.abs( x2 - x1 ) < delta &&
 						Math.abs( y2 - y1 ) < delta &&
@@ -315,91 +243,9 @@
 			    return Math.floor(Math.random() * (max - min + 1) ) + min;
 	    	}
 
-			function mapIndices( bufGeometry, indexedBufferGeom ) {
-				// Creates ammoVertices, ammoIndices and ammoIndexAssociation in bufGeometry
-				const vertices = bufGeometry.attributes.position.array;
-				const idxVertices = indexedBufferGeom.attributes.position.array;
-				const indices = indexedBufferGeom.index.array;
-
-				const numIdxVertices = idxVertices.length / 3;
-				const numVertices = vertices.length / 3;
-
-				bufGeometry.ammoVertices = idxVertices;
-				bufGeometry.ammoIndices = indices;
-				bufGeometry.ammoIndexAssociation = [];
-
-				for ( let i = 0; i < numIdxVertices; i ++ ) {
-
-					const association = [];
-					bufGeometry.ammoIndexAssociation.push( association );
-
-					const i3 = i * 3;
-
-					for ( let j = 0; j < numVertices; j ++ ) {
-
-						const j3 = j * 3;
-						if ( isEqual( idxVertices[ i3 ], idxVertices[ i3 + 1 ], idxVertices[ i3 + 2 ],
-							vertices[ j3 ], vertices[ j3 + 1 ], vertices[ j3 + 2 ] ) ) {
-
-							association.push( j3 );
-						}
-					}
-				}
-			}
-
-			function createSoftVolume( bufferGeom, mass, pressure ) {
-
-				processGeometry( bufferGeom );
-
-				const volume = new THREE.Mesh( bufferGeom, new THREE.MeshPhongMaterial( { color: 0xFFFFFF } ) );
-				volume.castShadow = true;
-				volume.receiveShadow = true;
-				volume.frustumCulled = false;
-				scene.add( volume );
-
-				textureLoader.load( 'textures/colors.png', function ( texture ) {
-					volume.material.map = texture;
-					volume.material.needsUpdate = true;
-
-				} );
-
-				// Volume physic object
-				const volumeSoftBody = softBodyHelpers.CreateFromTriMesh(
-					physicsWorld.getWorldInfo(),
-					bufferGeom.ammoVertices,
-					bufferGeom.ammoIndices,
-					bufferGeom.ammoIndices.length / 3,
-					true );
-
-				const sbConfig = volumeSoftBody.get_m_cfg();
-				sbConfig.set_viterations( 40 );
-				sbConfig.set_piterations( 40 );
-
-				// Soft-soft and soft-rigid collisions
-				sbConfig.set_collisions( 0x11 );
-
-				// Friction
-				sbConfig.set_kDF( 0.1 );
-				// Damping
-				sbConfig.set_kDP( 0.01 );
-				// Pressure
-				sbConfig.set_kPR( pressure );
-				// Stiffness
-				volumeSoftBody.get_m_materials().at( 0 ).set_m_kLST( 0.9 );
-				volumeSoftBody.get_m_materials().at( 0 ).set_m_kAST( 0.9 );
-
-				volumeSoftBody.setTotalMass( mass, false );
-				Ammo.castObject( volumeSoftBody, Ammo.btCollisionObject ).getCollisionShape().setMargin( margin );
-				physicsWorld.addSoftBody( volumeSoftBody, 1, - 1 );
-				volume.userData.physicsBody = volumeSoftBody;
-				// Disable deactivation
-				volumeSoftBody.setActivationState( 4 );
-
-				softBodies.push( volume );
-			}
-
     		/* Créer un parallélépipède (par exemple les briques du mur) */
-			function createParalellepiped( sx, sy, sz, mass, pos, quat, material ) {
+			function createParalellepiped( sx, sy, sz, mass, pos, quat, material ) 
+			{
 				const threeObject = new THREE.Mesh( new THREE.BoxGeometry( sx, sy, sz, 1, 1, 1 ), material );
 				const shape = new Ammo.btBoxShape( new Ammo.btVector3( sx * 0.5, sy * 0.5, sz * 0.5 ) );
 				shape.setMargin( margin );
@@ -408,45 +254,9 @@
 
 				return threeObject;
 			}
-			
-			/* Créer un cylindre (par exemple le mât du drapeau) */
-			function createCylinder( sx, sy, sz, mass, pos, quat, material ) 
+
+			function createRigidBody( threeObject, physicsShape, mass, pos, quat ) 
 			{
-				const threeObject = new THREE.Mesh( new THREE.CylinderGeometry( sx, sy, sz, 32), material );
-				const shape = new Ammo.btCylinderShape( new Ammo.btVector3( sx, sz * 0.5, sy) );
-				shape.setMargin( margin );
-
-				createRigidBody( threeObject, shape, mass, pos, quat );
-
-				return threeObject;
-			}
-			
-			/* Créer un cône */
-			function createCone( sx, sz, mass, pos, quat, material ) 
-			{
-				const threeObject = new THREE.Mesh( new THREE.ConeGeometry( sx, sz, 20, 2), material );
-				const shape = new Ammo.btConeShape(sx, sz);
-				shape.setMargin( margin );
-
-				createRigidBody( threeObject, shape, mass, pos, quat );
-
-				return threeObject;
-			}
-			
-			function createDrone() {
-				const loader = new THREE.TextureLoader();
-				const droneMaterial = new THREE.MeshLambertMaterial({
-				  map: loader.load("objets/drone.png")
-				});
-				
-				var newDrone = createParalellepiped( 1., 2., 0.5, new THREE.Vector3( 0, 0, 0 ), quat, droneMaterial);
-				newDrone.castShadow = true;
-				newDrone.receiveShadow = true;
-				
-				return newDrone;
-			}
-
-			function createRigidBody( threeObject, physicsShape, mass, pos, quat ) {
 				threeObject.position.copy( pos );
 				threeObject.quaternion.copy( quat );
 
@@ -480,17 +290,14 @@
 				return body;
 			}
 			
-			function createRandomColor() {
+			function createRandomColor() 
+			{
 				return Math.floor( Math.random() * ( 1 << 24 ) );
 			}
-
-			function createMaterial() {
-				return new THREE.MeshPhongMaterial( { color: createRandomColor() } );
-			}
 			
-			/* Draw a line between two points */
-			function drawLine(p1, p2) {
-				//create a blue LineBasicMaterial
+			// Dessiner un trait entre deux points
+			function drawLine(p1, p2) 
+			{
 				const material = new THREE.LineBasicMaterial( { color: 0x0000ff } );
 				const points = [];
 				points.push(p1);
@@ -501,7 +308,8 @@
 				scene.add(line);
 			}
 
-			function initInput() {
+			function initInput() 
+			{
 				window.addEventListener( 'pointerdown', function ( event ) {
 
 					if ( ! clickRequest ) {
@@ -515,105 +323,142 @@
 				} );
 			}
 
-			function onWindowResize() {
-
+			function onWindowResize() 
+			{
 				camera.aspect = window.innerWidth / window.innerHeight;
 				camera.updateProjectionMatrix();
 
 				renderer.setSize( window.innerWidth, window.innerHeight );
 			}
+			
+			function isNext(margin, a, b)
+			{
+			    return (a+margin >= b && a-margin <= b);
+			}   
+			
+            function isNextToTheNextCheckPoint(id) 
+            {
+                var xyz = ["lng_X", "alt_Y", "lat_Z"];
 
-			function animate() {
+                var margin = 0.001;
+                var step = wayStep[id];
 
+                var isNextX = isNext(margin, drones_objects[id].position.x, 
+                    (json_file["drones"][id]["waypoints"][step+1]["position"][xyz[0]])*0.01);
+
+                var isNextY = isNext(margin, drones_objects[id].position.y, 
+                    (json_file["drones"][id]["waypoints"][step+1]["position"][xyz[1]])*0.01);
+
+                var isNextZ = isNext(margin, drones_objects[id].position.z, 
+                    (json_file["drones"][id]["waypoints"][step+1]["position"][xyz[2]])*0.01);
+
+                return (isNextX && isNextY && isNextZ);
+            }
+			
+			function animateOneDrone(id)
+			{
+                var step = wayStep[id];
+                console.log("step: "+step);
+                var speedX = 0;
+                var speedY = 0;
+                var speedZ = 0;
+
+                var xyz = ["lng_X", "alt_Y", "lat_Z"];
+
+                // si le drone actuel a atteint le dernier waypoint
+                // il reste à sa place
+                if(step >= json_file["drones"][id]["waypoints"].length - 1) {
+                    return;
+                }
+
+                for(var i=0; i<3; i++) 
+                { 
+                    var currentStep = json_file["drones"][id]["waypoints"][step]["position"][xyz[i]];
+                    var nextStep = json_file["drones"][id]["waypoints"][step+1]["position"][xyz[i]];
+
+                    //currentStep = centimeterToMeter(currentStep);
+                    //nextStep = centimeterToMeter(nextStep);
+                    
+                    currentStep *= 0.01;
+                    nextStep *= 0.01;
+
+                    var distance = nextStep - currentStep;
+                    var tps = json_file["framerate"];
+
+                    if (i == 0) speedX = distance / tps;
+                    else if (i ==1) speedY = distance / tps;
+                    else speedZ = distance / tps;
+                }
+
+                drones_objects[id].position.x += speedX;
+                drones_objects[id].position.y += speedY;
+                drones_objects[id].position.z += speedZ;
+
+                // i le drone atteint son prochain waypoint; on update
+                if (isNextToTheNextCheckPoint(id)) 
+                {
+                    console.log("change");
+                    wayStep[id]++;
+                }
+            }
+
+
+
+			function animate() 
+			{
 				requestAnimationFrame( animate );
 				
 				// gestion des LOD
-                		scene.traverse( function ( object ) {
-			        if ( object instanceof THREE.LOD ) { 
+        		scene.traverse( function ( object ) 
+        		{
+			        if ( object instanceof THREE.LOD ) 
+			        { 
 			            object.update( camera );
-			            object.castShadow = true;
+                        object.castShadow = true;
+                        object.receiveShadow = true;
 			        }
 			    });
 			    
+			    // positions des drones d'une frame à l'autre
+			    /*var frameNumber = renderer.info.render.frame;
+			    var framerate = json_file.framerate;
+			    for(let i=0; i < json_file.drones.length; i++)
+			    {
+			        for(let j=0; j < json_file["drones"][i]["waypoints"].length; j++)
+			        {
+			            if(frameNumber == json_file["drones"][i]["waypoints"][j]["frame"])
+			            {
+	                        var x = json_file["drones"][i]["waypoints"][j]["position"]["lng_X"];
+	                        var y = json_file["drones"][i]["waypoints"][j]["position"]["alt_Y"];
+	                        var z = json_file["drones"][i]["waypoints"][j]["position"]["lat_Z"];
+	                            console.log("x: "+x+" y: "+y+" z: "+z);
+	                        var object = drones_objects[i];
+	                        object.position.set(x,y,z);
+                        }
+			        }
+			    }*/
+			    
+
+			    for(var i=0; i < json_file.drones.length; i++)
+			        animateOneDrone(i);
+			    
 				render();
-				renderer.render(scene, camera);
 				stats.update();
 			}
 
-			function render() {
-
+			function render() 
+			{
 				const deltaTime = clock.getDelta();
 				updatePhysics( deltaTime );
 				renderer.render( scene, camera );
-				//effect.render( scene, camera );
+				renderer.shadowMap.enabled = true;
 			}
 
-			function updatePhysics( deltaTime ) {
-
+			function updatePhysics( deltaTime ) 
+			{
 				// Step world
 				physicsWorld.stepSimulation( deltaTime, 10 );
 				
-				/*// Update cloth
-				const softBody = cloth.userData.physicsBody;
-				const clothPositions = cloth.geometry.attributes.position.array;
-				const numVerts = clothPositions.length / 3;
-				const nodes = softBody.get_m_nodes();
-				let indexFloat = 0;
-
-				for ( let i = 0; i < numVerts; i ++ ) {
-					const node = nodes.at( i );
-					const nodePos = node.get_m_x();
-					clothPositions[ indexFloat ++ ] = nodePos.x();
-					clothPositions[ indexFloat ++ ] = nodePos.y();
-					clothPositions[ indexFloat ++ ] = nodePos.z();
-				}
-
-				cloth.geometry.computeVertexNormals();
-				cloth.geometry.attributes.position.needsUpdate = true;
-				cloth.geometry.attributes.normal.needsUpdate = true;*/
-
-				/*// Update soft volumes
-				for ( let i = 0, il = softBodies.length; i < il; i ++ ) {
-
-					const volume = softBodies[ i ];
-					const geometry = volume.geometry;
-					const softBody = volume.userData.physicsBody;
-					const volumePositions = geometry.attributes.position.array;
-					const volumeNormals = geometry.attributes.normal.array;
-					const association = geometry.ammoIndexAssociation;
-					const numVerts = association.length;
-					const nodes = softBody.get_m_nodes();
-					for ( let j = 0; j < numVerts; j ++ ) {
-
-						const node = nodes.at( j );
-						const nodePos = node.get_m_x();
-						const x = nodePos.x();
-						const y = nodePos.y();
-						const z = nodePos.z();
-						const nodeNormal = node.get_m_n();
-						const nx = nodeNormal.x();
-						const ny = nodeNormal.y();
-						const nz = nodeNormal.z();
-
-						const assocVertex = association[ j ];
-
-						for ( let k = 0, kl = assocVertex.length; k < kl; k ++ ) {
-
-							let indexVertex = assocVertex[ k ];
-							volumePositions[ indexVertex ] = x;
-							volumeNormals[ indexVertex ] = nx;
-							indexVertex ++;
-							volumePositions[ indexVertex ] = y;
-							volumeNormals[ indexVertex ] = ny;
-							indexVertex ++;
-							volumePositions[ indexVertex ] = z;
-							volumeNormals[ indexVertex ] = nz;
-						}
-					}
-					geometry.attributes.position.needsUpdate = true;
-					geometry.attributes.normal.needsUpdate = true;
-				}*/
-
 				// Update rigid bodies
 				for ( let i = 0, il = rigidBodies.length; i < il; i ++ ) {
 
@@ -629,55 +474,10 @@
 						objThree.quaternion.set( q.x(), q.y(), q.z(), q.w() );
 					}
 				}
-				
-				// Update drone positions
-				/*console.log(drones3D.length);
-				for ( let i = 0, il = drones3D.length; i < il; i ++ ) {
-
-					const objThree = drones3D[ i ];
-					const objPhys = objThree.userData.physicsBody;
-					const ms = objPhys.getMotionState();
-					
-					if ( ms ) {
-
-						ms.getWorldTransform( transformAux1 );
-						const p = transformAux1.getOrigin();
-						const q = transformAux1.getRotation();
-						objThree.position.set( p.x(), p.y(), p.z() );
-						objThree.quaternion.set( q.x(), q.y(), q.z(), q.w() );
-
-																								
-						//objThree.position.set(x, y, z);
-						//objThree.quaternion.set(x, y, z, w);
-					}
-				}*/
 			}
 			
-			/*function handler() {
-				if(this.status == 200 && this.readyState == 4 ) {
-					var allData = this.response;
-					//console.log(allData.drones);
-					
-					for ( let i = 0, il = allData.drones.length; i < il; i ++ )
-					{
-						drones.push(allData.drones[i].id);
-						//var id = allData.drones[i].id;
-						//var position = allData.drones[i].waypoints[0];
-						//drones.push(createDrone(id, position));
-						listWaypoints.push(allData.drones[i].waypoints);
-					}
-			    
-					console.log(drones);
-					console.log(listWaypoints);
-					//important data: listWaypoints.frame[i], listWaypoints.position[i]
-					//position args: alt_Y, lat_Z, lng_X //cm
-					
-				} else {
-					console.log("Erreur de lecture");
-				}
-			}*/
-			
-			function handler(){
+			function handler()
+			{
 				if (this.status == 200 && this.readyState == 4) {
 					json_file = this.response;
 
@@ -686,33 +486,9 @@
 				}
 			}
 			
-			function loadJSON() {
-				var client = new XMLHttpRequest();
-				client.onload = handler;
-				client.responseType = 'json';
-				client.open("GET", "waypoints.json");
-				client.send();
-			}
-			
-			/*var droneLoader = new THREE.LegacyJSONLoader();
-
-            // 1: Will remain null until the JSON file is loaded
-            var droneMesh = null;
-
-            droneLoader.load("waypoints.json",
-                function ( geometry, materials ) {
-                    var material = new THREE.MeshBasicMaterial( { color: 0x0000ff } );
-
-                    // 2: Once JSON is loaded, we use the variable from above, and turn it into a Mesh.
-                    droneMesh = new THREE.Mesh( geometry, material );
-
-                    // 3: Now we add it to the scene
-                    scene.add(droneMesh);
-                }
-            );*/
-			
 			// affichage plein écran ("fullscreen")
-			function openFullscreen() {
+			function openFullscreen() 
+			{
 				var elem = document.documentElement;
 				if (elem.requestFullscreen) {
 					elem.requestFullscreen();
@@ -723,7 +499,8 @@
 			      }
 			}
 
-			function showAxesHelper() {
+			function showAxesHelper() 
+			{
 				if (axesHelper.visible) axesHelper.visible = false;
 				else axesHelper.visible = true;
 			};
@@ -733,25 +510,11 @@
 			      else gridHelper.visible = true;
 			};
 			
-			//.visible for those doesn't exist so we need to find a workaround later
-			/*function showVertLines() {
-				if (vertLines.visible) vertLines.visible = false;
-				else vertLines.visible = true;
-			};
-
-			function showDroneNames() {
-			      if (droneNames.visible) droneNames.visible = false;
-			      else droneNames.visible = true;
-			};
-			
-			function showDroneTrajectories() {
-			      if (droneTrajectories.visible) droneTrajectories.visible = false;
-			      else droneTrajectories.visible = true;
-			};*/
-
-		       // affichage avec le clavier
-		       window.addEventListener("keydown", function (event) {
-		       	switch (event.key) {
+	       // affichage avec le clavier
+	       window.addEventListener("keydown", function (event) 
+	       {
+		       	switch (event.key) 
+		       	{
 					case "f":
 					  openFullscreen(); // plein écran
 					  break;
