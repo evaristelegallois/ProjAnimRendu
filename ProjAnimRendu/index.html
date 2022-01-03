@@ -1,11 +1,11 @@
-<!-- THIEL Samantha, PAREL Gabriel - TP6 Animation et rendu (17/11/21) -->
+<!-- THIEL Samantha, PAREL Gabriel - Projet Animation et rendu (10/12/21) -->
 
 <!DOCTYPE html>
 <html>
     <head>
     <link rel="stylesheet" href="style.css">
     <meta charset="utf-8" />
-        <title>TP6 Animation et rendu</title>
+        <title>Visualisation de chorégraphie de drones</title>
     </head>
 
     <body>
@@ -32,7 +32,14 @@
 			let textureLoader;
 			let axesHelper, gridHelper; //display grid, axes
 			let droneNames, vertLines; //display names, lines
+			
 			let droneTrajectories; //display trajectories
+			const drones = [], drones3D = [];
+			var json_file;
+			const waypoints = [], listWaypoints = [];
+			var array = new Array();
+            var wayStep = new Array();
+            
 			const clock = new THREE.Clock();
 			let clickRequest = false;
 			const mouseCoords = new THREE.Vector2();
@@ -43,12 +50,10 @@
 			let effect;
 
 			// Physics variables
-			const gravityConstant = - 9.8;
+			const gravityConstant = -9.8;
 			let physicsWorld;
 			const rigidBodies = [];
 			const softBodies = [];
-			const drones = [], drones3D = [];
-			const waypoints = [], listWaypoints = [];
 			const margin = 0.05;
 			let transformAux1;
 			let cloth;
@@ -63,7 +68,13 @@
 			} );
 
 			function init() {
-				loadJSON();
+				var client = new XMLHttpRequest();
+				client.onload = handler;
+				client.responseType = 'json';
+				client.open("GET", "waypoints.json");
+				client.send();
+				
+				//loadJSON();
 				initGraphics();
 				initPhysics();
 				createObjects();
@@ -87,8 +98,6 @@
 				renderer.setSize( window.innerWidth, window.innerHeight );
 				renderer.shadowMap.enabled = true;
 				container.appendChild( renderer.domElement );
-				
-				//effect = new THREE.AnaglyphEffect( renderer );
 
 				controls = new THREE.OrbitControls( camera, renderer.domElement );
 				controls.target.set( 0, 2, 0 );
@@ -155,19 +164,22 @@
 				var geometryP = new THREE.PlaneGeometry( 20, 20, 32 );
 				var materialP = new THREE.MeshPhongMaterial( {color: 0xffff00,
 				   map: texture,shininess: 40,side: THREE.DoubleSide} );
-				const plane = createParalellepiped( 60, 1, 60, 0, pos, quat, materialP );
+				var size = 200;
+				const plane = createParalellepiped( size, 1, size, 0, pos, quat, materialP );
 				scene.add( plane );
 				plane.receiveShadow = true;
 				
-				//axes x, y, z
+				// axes x, y, z
+				var y = 0.7;
 				axesHelper = new THREE.AxesHelper(10);
 				scene.add(axesHelper);
+				axesHelper.position.set(0, y+0.3, 0);
 
-				//grille xoz
-				var size = 20;
-				var divisions = 10;
+				// grille xoz
+				var divisions = 30;
 				gridHelper = new THREE.GridHelper(size, divisions);
 				scene.add(gridHelper);
+				gridHelper.position.set(0, y, 0);
 				
 				// skybox
 				var textures_skybox = [
@@ -215,17 +227,66 @@
 				}*/
 				
 				//drones
-				for(i = 0; i < drones.length; i++){
-					
+				/*for(i = 0; i < drones.length; i++){
 					var id = drones[i];
 					var position = listWaypoints[i][0];
 					var newDrone = createDrone(id, position);
 					newDrone.castShadow = true;
 					newDrone.receiveShadow = true;
 					//drones3D.push(newDrone);
-				}
-				
+				}*/
 			}
+			
+			
+			/* Chargement des drones à partir du fichier JSON */
+			function loadDrones(){
+			    const lod = new THREE.LOD();
+			    
+		    	var mtlLoader = new THREE.MTLLoader();
+
+	            mtlLoader.setPath('objets/drone/');
+	            mtlLoader.load( "Dron DL-3 MODEL RIGING.mtl", function(materials) {
+		            materials.preload();
+
+		            var objLoader = new THREE.OBJLoader();
+
+		            objLoader.setMaterials(materials);
+
+		            objLoader.setPath('objets/drone/');
+
+		            objLoader.load( 'Dron DL-3 MODEL RIGING.obj', function (object) {
+				        lod.addLevel(object, 0);
+				
+			            for (var i=0; i<json_file.drones.length; i++)
+                        {
+	                        var new_object = lod.clone();
+
+	                        console.log(json_file["drones"][i]["waypoints"][0]["position"]);
+
+	                        var x = json_file["drones"][i]["waypoints"][0]["position"]["lng_X"];
+	                        var y = json_file["drones"][i]["waypoints"][0]["position"]["alt_Y"];
+	                        var z = json_file["drones"][i]["waypoints"][0]["position"]["lat_Z"];
+
+                            x *= 0.15;
+                            y *= 0.15;
+                            z *= 0.15;
+	                        new_object.position.set( x*0.1, y*0.1, z*0.1 );
+	                        new_object.scale.set(1.2, 1.2, 1.2);
+
+	                        array.push(new_object);
+	                        scene.add(new_object);
+	                        new_object.receiveShadow = true;
+                        }
+            		});
+                });
+
+                // initiation
+                for (var i=0; i<array.length; i++) {
+	                wayStep[i] = 0;
+                }
+            }
+
+
 
 			function processGeometry( bufGeometry ) {
 				// Only consider the position values when merging the vertices
@@ -250,12 +311,11 @@
 			
 			// générer un nombre aléatoire entre min et max
 			function nbAlea(min, max)
-	    	    	{	
+	    	{	
 			    return Math.floor(Math.random() * (max - min + 1) ) + min;
-	    	    	}
+	    	}
 
 			function mapIndices( bufGeometry, indexedBufferGeom ) {
-
 				// Creates ammoVertices, ammoIndices and ammoIndexAssociation in bufGeometry
 				const vertices = bufGeometry.attributes.position.array;
 				const idxVertices = indexedBufferGeom.attributes.position.array;
@@ -338,7 +398,7 @@
 				softBodies.push( volume );
 			}
 
-            		/* Créer un parallélépipède (par exemple les briques du mur) */
+    		/* Créer un parallélépipède (par exemple les briques du mur) */
 			function createParalellepiped( sx, sy, sz, mass, pos, quat, material ) {
 				const threeObject = new THREE.Mesh( new THREE.BoxGeometry( sx, sy, sz, 1, 1, 1 ), material );
 				const shape = new Ammo.btBoxShape( new Ammo.btVector3( sx * 0.5, sy * 0.5, sz * 0.5 ) );
@@ -373,15 +433,13 @@
 				return threeObject;
 			}
 			
-			function createDrone(id, position) {
-		
+			function createDrone() {
 				const loader = new THREE.TextureLoader();
 				const droneMaterial = new THREE.MeshLambertMaterial({
 				  map: loader.load("objets/drone.png")
 				});
 				
-				//createParalellepiped()
-				var newDrone = createParalellepiped( 1., 2., 0.5, position, quat, droneMaterial);
+				var newDrone = createParalellepiped( 1., 2., 0.5, new THREE.Vector3( 0, 0, 0 ), quat, droneMaterial);
 				newDrone.castShadow = true;
 				newDrone.receiveShadow = true;
 				
@@ -389,7 +447,6 @@
 			}
 
 			function createRigidBody( threeObject, physicsShape, mass, pos, quat ) {
-
 				threeObject.position.copy( pos );
 				threeObject.quaternion.copy( quat );
 
@@ -431,9 +488,8 @@
 				return new THREE.MeshPhongMaterial( { color: createRandomColor() } );
 			}
 			
-			//draws a line between two points; THREE.Vector3
+			/* Draw a line between two points */
 			function drawLine(p1, p2) {
-			
 				//create a blue LineBasicMaterial
 				const material = new THREE.LineBasicMaterial( { color: 0x0000ff } );
 				const points = [];
@@ -480,6 +536,7 @@
 			    });
 			    
 				render();
+				renderer.render(scene, camera);
 				stats.update();
 			}
 
@@ -596,7 +653,7 @@
 				}*/
 			}
 			
-			function handler() {
+			/*function handler() {
 				if(this.status == 200 && this.readyState == 4 ) {
 					var allData = this.response;
 					//console.log(allData.drones);
@@ -604,9 +661,9 @@
 					for ( let i = 0, il = allData.drones.length; i < il; i ++ )
 					{
 						drones.push(allData.drones[i].id);
-						/*var id = allData.drones[i].id;
-						var position = allData.drones[i].waypoints[0];
-						drones.push(createDrone(id, position));*/
+						//var id = allData.drones[i].id;
+						//var position = allData.drones[i].waypoints[0];
+						//drones.push(createDrone(id, position));
 						listWaypoints.push(allData.drones[i].waypoints);
 					}
 			    
@@ -618,6 +675,15 @@
 				} else {
 					console.log("Erreur de lecture");
 				}
+			}*/
+			
+			function handler(){
+				if (this.status == 200 && this.readyState == 4) {
+					json_file = this.response;
+
+					loadDrones();
+
+				}
 			}
 			
 			function loadJSON() {
@@ -627,6 +693,23 @@
 				client.open("GET", "waypoints.json");
 				client.send();
 			}
+			
+			/*var droneLoader = new THREE.LegacyJSONLoader();
+
+            // 1: Will remain null until the JSON file is loaded
+            var droneMesh = null;
+
+            droneLoader.load("waypoints.json",
+                function ( geometry, materials ) {
+                    var material = new THREE.MeshBasicMaterial( { color: 0x0000ff } );
+
+                    // 2: Once JSON is loaded, we use the variable from above, and turn it into a Mesh.
+                    droneMesh = new THREE.Mesh( geometry, material );
+
+                    // 3: Now we add it to the scene
+                    scene.add(droneMesh);
+                }
+            );*/
 			
 			// affichage plein écran ("fullscreen")
 			function openFullscreen() {
