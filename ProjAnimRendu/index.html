@@ -38,14 +38,14 @@
 			let camera, controls, scene, renderer, labelRenderer;
 			let textureLoader;
 			let axesHelper, gridHelper; //display grid, axes
-			let droneNames, vertLines; //display names, lines
 			
-			let droneTrajectories; //display trajectories
 			const drones = [], drones3D = [];
 			var json_file;
-			const linesV = new THREE.Group(), linesT = new THREE.Group();
+			var linesV = new THREE.Group(); //relier au sol
+			const linesT = new THREE.Group(); //trajectoires
 			var drones_objects = [];
-            		var wayStep = [];
+            		var wayStep = [], listWayStep = [];
+            		var done = false, stop = false;
            		var scale = 0.01; // mise à l'échelle
             
 			const clock = new THREE.Clock();
@@ -76,7 +76,7 @@
 				var client = new XMLHttpRequest();
 				client.onload = handler;
 				client.responseType = 'json';
-				client.open("GET", "waypoints.json");
+				client.open("GET", "waypoints2.json");
 				client.send();
 				
 				initGraphics();
@@ -90,7 +90,8 @@
 			{
 				container = document.getElementById( 'container' );
 
-				camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.2, 2000 );
+				camera = new THREE.PerspectiveCamera( 60, 
+					window.innerWidth / window.innerHeight, 0.2, 2000 );
 
 				scene = new THREE.Scene();
 				scene.background = new THREE.Color( 0xbfd1e5 );
@@ -152,9 +153,11 @@
 				const broadphase = new Ammo.btDbvtBroadphase();
 				const solver = new Ammo.btSequentialImpulseConstraintSolver();
 				const softBodySolver = new Ammo.btDefaultSoftBodySolver();
-				physicsWorld = new Ammo.btSoftRigidDynamicsWorld( dispatcher, broadphase, solver, collisionConfiguration, 						softBodySolver );
+				physicsWorld = new Ammo.btSoftRigidDynamicsWorld( 
+					dispatcher, broadphase, solver, collisionConfiguration, softBodySolver );
 				physicsWorld.setGravity( new Ammo.btVector3( 0, gravityConstant, 0 ) );
-				physicsWorld.getWorldInfo().set_m_gravity( new Ammo.btVector3( 0, gravityConstant, 0 ) );
+				physicsWorld.getWorldInfo().set_m_gravity( 
+					new Ammo.btVector3( 0, gravityConstant, 0 ) );
 
 				transformAux1 = new Ammo.btTransform();
 				softBodyHelpers = new Ammo.btSoftBodyHelpers();
@@ -202,10 +205,10 @@
 			function loadDrones(){
 			    const lod = new THREE.LOD();
 			    
-		    	var mtlLoader = new THREE.MTLLoader();
+			    var mtlLoader = new THREE.MTLLoader();
 
-	            mtlLoader.setPath('objets/drone/');
-	            mtlLoader.load( "Dron DL-3 MODEL RIGING.mtl", function(materials) {
+			    mtlLoader.setPath('objets/drone/');
+			    mtlLoader.load( "Dron DL-3 MODEL RIGING.mtl", function(materials) {
 		            materials.preload();
 
 		            var objLoader = new THREE.OBJLoader();
@@ -218,67 +221,48 @@
 				        lod.addLevel(object, 0);
 				
 			            for (var i=0; i<json_file.drones.length; i++)
-                        {
-	                        var new_object = lod.clone();
-	                        var x = json_file["drones"][i]["waypoints"][0]["position"]["lng_X"];
-	                        var y = json_file["drones"][i]["waypoints"][0]["position"]["alt_Y"];
-	                        var z = json_file["drones"][i]["waypoints"][0]["position"]["lat_Z"];
+                        		{
+					        var new_object = lod.clone();
+					        var x = json_file["drones"][i]["waypoints"][0]["position"]["lng_X"];
+					        var y = json_file["drones"][i]["waypoints"][0]["position"]["alt_Y"];
+					        var z = json_file["drones"][i]["waypoints"][0]["position"]["lat_Z"];
 
-                            	x *= scale;
-                           	y *= scale;
-                            	z *= scale;
-	                       new_object.position.set( x, y, z );
-	                       new_object.scale.set(1.2, 1.2, 1.2);
-	                       
-	                       // pour affichage ID
-	                       var label = makeTextLabel(`Drone #${i}`);
-				new_object.add(label);
-				
-				// ombres
-				//new_object.receiveShadow = true;
-            			new_object.castShadow = true;
+				            	x *= scale;
+				           	y *= scale;
+				            	z *= scale;
+					       new_object.position.set( x, y, z );
+					       new_object.scale.set(1.2, 1.2, 1.2);
+					       
+					       // pour affichage ID
+					       var label = makeTextLabel(`D #${i}`);
+						new_object.add(label);
+						
+						// ombres; fait plus loin
+			    			//new_object.castShadow = true;
+			    			//new_object.receiveShadow = true;
 
-	                       drones_objects[i] = new_object;
-	                       scene.add(new_object);
-                        }
-                        
-                        	//création des lignes reliant les drones au sol
-				for ( let i = 0, il = drones_objects.length; i < il; i ++ ) {		
-					var dronePos = drones_objects[i].position;
-					var line = drawLine(dronePos, new THREE.Vector3(dronePos.x, 0.7, dronePos.z));
-					linesV.add(line);
-				}
-				scene.add(linesV);
-
-            		});
-                });
-
-                // initiation
-                for (var i=0; i < json_file.drones.length; i++) 
-                {
-	                wayStep[i] = 0;
-                }
-            }
-
-			function isEqual( x1, y1, z1, x2, y2, z2 ) 
-			{
-				const delta = 0.000001;
-				return Math.abs( x2 - x1 ) < delta &&
-						Math.abs( y2 - y1 ) < delta &&
-						Math.abs( z2 - z1 ) < delta;
+					       drones_objects[i] = new_object;
+					       scene.add(new_object);
+                        		}
+                        		
+                        		drawLineToGround();
+                        		drawTrajectories();
+		    		});
+			});
+				// initiation
+				for (var i=0; i < json_file.drones.length; i++) 
+					wayStep[i] = 0;
+				listWayStep.push(wayStep);
 			}
-			
-			// générer un nombre aléatoire entre min et max
-			function nbAlea(min, max)
-	    	{	
-			    return Math.floor(Math.random() * (max - min + 1) ) + min;
-	    	}
+
 
     		/* Créer un parallélépipède (par exemple les briques du mur) */
 			function createParalellepiped( sx, sy, sz, mass, pos, quat, material ) 
 			{
-				const threeObject = new THREE.Mesh( new THREE.BoxGeometry( sx, sy, sz, 1, 1, 1 ), material );
-				const shape = new Ammo.btBoxShape( new Ammo.btVector3( sx * 0.5, sy * 0.5, sz * 0.5 ) );
+				const threeObject = new THREE.Mesh( 
+					new THREE.BoxGeometry( sx, sy, sz, 1, 1, 1 ), material );
+				const shape = new Ammo.btBoxShape( 
+					new Ammo.btVector3( sx * 0.5, sy * 0.5, sz * 0.5 ) );
 				shape.setMargin( margin );
 
 				createRigidBody( threeObject, shape, mass, pos, quat );
@@ -300,20 +284,18 @@
 				const localInertia = new Ammo.btVector3( 0, 0, 0 );
 				physicsShape.calculateLocalInertia( mass, localInertia );
 
-				const rbInfo = new Ammo.btRigidBodyConstructionInfo( mass, motionState, physicsShape, localInertia );
+				const rbInfo = new Ammo.btRigidBodyConstructionInfo( mass, 
+					motionState, physicsShape, localInertia );
 				const body = new Ammo.btRigidBody( rbInfo );
-
 				threeObject.userData.physicsBody = body;
 
 				scene.add( threeObject );
 
 				if ( mass > 0 ) {
-
 					rigidBodies.push( threeObject );
 
 					// Disable deactivation
 					body.setActivationState( 4 );
-
 				}
 
 				physicsWorld.addRigidBody( body );
@@ -327,16 +309,58 @@
 			}
 			
 			// Dessiner un trait entre deux points
-			function drawLine(p1, p2) 
+			function drawLine(p1, p2, col) 
 			{
-				const material = new THREE.LineBasicMaterial( { color: 0x0000ff } );
+				var material;
+				if (col == "blue") material = new THREE.LineBasicMaterial( 
+					{ color: 0x0000ff } );
+				else if (col == "green") material = new THREE.LineBasicMaterial( 
+					{ color: 0x00ff00 } );
 				const points = [];
 				points.push(p1);
 				points.push(p2);
 
 				const geometry = new THREE.BufferGeometry().setFromPoints( points );
 				const line = new THREE.Line( geometry, material );
-				scene.add(line);
+				//scene.add(line);
+				
+				return line;
+			}
+			
+			//relier les drones au sol par une ligne
+			function drawLineToGround() {
+				//création des lignes reliant les drones au sol
+				for ( let i = 0, il = drones_objects.length; i < il; i ++ ) {		
+					var dronePos = drones_objects[i].position;
+					var line = drawLine(dronePos, 
+						new THREE.Vector3(dronePos.x, 0.7, dronePos.z), "green");
+					linesV.add(line);
+				}
+				scene.add(linesV);
+			}
+			
+			//afficher les trajectoires
+			function drawTrajectories() {
+				//création des trajectoires grâce aux waypoints
+				for ( let i = 0, il = drones_objects.length; i < il; i ++ ) {
+					for ( let j = 0, jl = json_file["drones"][i]["waypoints"].length-1; j < jl; j ++) {
+					 	
+						var x = json_file["drones"][i]["waypoints"][j]["position"]["lng_X"];
+	                        		var y = json_file["drones"][i]["waypoints"][j]["position"]["alt_Y"];
+	                        		var z = json_file["drones"][i]["waypoints"][j]["position"]["lat_Z"];
+	                        		var waypt = new THREE.Vector3(x*scale,y*scale,z*scale);
+	                        		
+	                        		var nx = json_file["drones"][i]["waypoints"][j+1]["position"]["lng_X"];
+	                        		var ny = json_file["drones"][i]["waypoints"][j+1]["position"]["alt_Y"];
+	                        		var nz = json_file["drones"][i]["waypoints"][j+1]["position"]["lat_Z"];
+	                        		var nextWaypt = new THREE.Vector3(nx*scale,ny*scale,nz*scale);
+	                      
+						var line = drawLine(waypt, nextWaypt, "blue");
+						linesT.add(line);
+					}
+				}
+				scene.add(linesT);
+			
 			}
 
 			function initInput() 
@@ -367,77 +391,76 @@
 			    return (a+margin >= b && a-margin <= b);
 			}   
 			
-            function isNextToTheNextCheckPoint(id) 
-            {   
-                var margin = 0.001;
-                var step = wayStep[id];
-                
-                console.log("a: "+drones_objects[id].position.x+" b: "+(json_file["drones"][id]["waypoints"][step+1]["position"]["lng_X"])*scale);
+			function isNextToTheNextCheckPoint(id) 
+			    {   
+				var margin = 0.001;
+				var step = wayStep[id];
 
-                var isNextX = isNext(margin, drones_objects[id].position.x, 
-                    (json_file["drones"][id]["waypoints"][step+1]["position"]["lng_X"])*scale);
+				var isNextX = isNext(margin, drones_objects[id].position.x, 
+				    (json_file["drones"][id]["waypoints"][step+1]["position"]["lng_X"])*scale);
 
-                var isNextY = isNext(margin, drones_objects[id].position.y, 
-                    (json_file["drones"][id]["waypoints"][step+1]["position"]["alt_Y"])*scale);
+				var isNextY = isNext(margin, drones_objects[id].position.y, 
+				    (json_file["drones"][id]["waypoints"][step+1]["position"]["alt_Y"])*scale);
 
-                var isNextZ = isNext(margin, drones_objects[id].position.z, 
-                    (json_file["drones"][id]["waypoints"][step+1]["position"]["lat_Z"])*scale);
+				var isNextZ = isNext(margin, drones_objects[id].position.z, 
+				    (json_file["drones"][id]["waypoints"][step+1]["position"]["lat_Z"])*scale);
 
-                console.log("isNextX: "+isNextX+" isNextY: "+isNextY+" isNextZ: "+isNextZ);
-                return (isNextX && isNextY && isNextZ);
-            }
-			
+				return (isNextX && isNextY && isNextZ);
+			    }
+				
 			function animateOneDrone(id)
 			{
-                var step = wayStep[id];
-                for(var i=0; i < wayStep.length; i++)
-                {
-                    console.log("waystep["+i+"] = "+wayStep[i]);
-                } 
-                console.log("step: "+step);
-                var speedX = 0;
-                var speedY = 0;
-                var speedZ = 0;
+				var step = wayStep[id];
+				var speedX = 0;
+				var speedY = 0;
+				var speedZ = 0;
 
-                var coords = ["lng_X", "alt_Y", "lat_Z"];
+				var coords = ["lng_X", "alt_Y", "lat_Z"];
 
-                // si le drone actuel a atteint le dernier waypoint
-                // il reste à sa place
-                if(step >= json_file["drones"][id]["waypoints"].length - 1) {
-                    return;
-                }
+				// si le drone actuel a atteint le dernier waypoint
+				// il reste à sa place
+				if(step >= json_file["drones"][id]["waypoints"].length - 1)
+				{
+					done = true;
+				    	return;
+				}
 
-                for(var i=0; i<3; i++) 
-                { 
-                    var currentStep = json_file["drones"][id]["waypoints"][step]["position"][coords[i]];
-                    var nextStep = json_file["drones"][id]["waypoints"][step+1]["position"][coords[i]];
+				for(var i=0; i<3; i++) 
+				{ 
+				    var currentStep = 
+				    	json_file["drones"][id]["waypoints"][step]["position"][coords[i]];
+				    var nextStep = 
+				    	json_file["drones"][id]["waypoints"][step+1]["position"][coords[i]];
 
-                    //currentStep = centimeterToMeter(currentStep);
-                    //nextStep = centimeterToMeter(nextStep);
-                    
-                    currentStep *= scale;
-                    nextStep *= scale;
+				    currentStep *= scale;
+				    nextStep *= scale;
 
-                    var distance = nextStep - currentStep;
-                    var tps = json_file["framerate"];
+				    var distance = nextStep - currentStep;
+				    var tps = json_file["framerate"];
 
-                    if (i == 0) speedX = distance / tps;
-                    else if (i == 1) speedY = distance / tps;
-                    else speedZ = distance / tps;
-                }
+				    if (i == 0) speedX = distance / tps;
+				    else if (i == 1) speedY = distance / tps;
+				    else speedZ = distance / tps;
+				}
 
-                drones_objects[id].position.x += speedX;
-                drones_objects[id].position.y += speedY;
-                drones_objects[id].position.z += speedZ;
+				drones_objects[id].position.x += speedX;
+				drones_objects[id].position.y += speedY;
+				drones_objects[id].position.z += speedZ;
 
-                // i le drone atteint son prochain waypoint; on update
-                if (isNextToTheNextCheckPoint(id)) 
-                {
-                    console.log("change");
-                    wayStep[id]++;
-                }
-            }
-
+				// i le drone atteint son prochain waypoint; on update
+				if (isNextToTheNextCheckPoint(id)) 
+				    wayStep[id]++;
+				
+				updateLineToGround(id);
+			}
+			
+			function updateLineToGround(id) {
+				// mise à jour des lignes verticales
+				var dronePos = drones_objects[id].position;
+				var line = drawLine(dronePos, 
+					new THREE.Vector3(dronePos.x, 0., dronePos.z));
+				linesV.children[id] = line;
+			}
 
 
 			function animate() 
@@ -445,15 +468,15 @@
 				requestAnimationFrame( animate );
 				
 				// gestion des LOD
-        		scene.traverse( function ( object ) 
-        		{
-			        if ( object instanceof THREE.LOD ) 
-			        { 
-			            object.update( camera );
-                        object.castShadow = true;
-                        object.receiveShadow = true;
-			        }
-			    });
+				scene.traverse( function ( object ) 
+				{
+					if ( object instanceof THREE.LOD ) 
+					{ 
+					    object.update( camera );
+		                object.castShadow = true;
+		                object.receiveShadow = true;
+					}
+				    });
 			    
 			    // positions des drones d'une frame à l'autre
 			    /*var frameNumber = renderer.info.render.frame;
@@ -474,9 +497,12 @@
 			        }
 			    }*/
 			    
-
-			    for(var i=0; i < json_file.drones.length; i++)
-			        animateOneDrone(i);
+			    if (!stop) {
+			    	for(var i=0; i < json_file.drones.length; i++)
+			        	animateOneDrone(i);
+			        if (!done) listWayStep.push(wayStep);
+			    	//console.log(listWayStep.length); 
+			        }   
 			    
 				render();
 				stats.update();
@@ -517,10 +543,20 @@
 			{
 				if (this.status == 200 && this.readyState == 4) {
 					json_file = this.response;
-
 					loadDrones();
-
 				}
+			}
+			
+			//see https://jsfiddle.net/lguminski/ctaofqr8/
+			//permet d'afficher un label en tant qu'objet css2dobject
+			function makeTextLabel(label) {
+				  var text = document.createElement('div');
+				  text.style.color = 'rgb(255, 255, 255)';
+				  text.style.marginTop = '3em';
+				  text.style.marginLeft = '-4em';
+				  text.className = 'label';
+				  text.textContent = label;
+				  return new THREE.CSS2DObject(text);
 			}
 			
 			// affichage plein écran ("fullscreen")
@@ -536,6 +572,7 @@
 			      }
 			}
 
+			/// Affichage des repères visuels
 			function showAxesHelper() 
 			{
 				if (axesHelper.visible) axesHelper.visible = false;
@@ -554,44 +591,16 @@
 
 			function showDroneNames() {
 				for ( let i = 0, il = drones_objects.length; i < il; i ++ ) {	
-				      if (drones_objects[i].children[1].visible) drones_objects[i].children[1].visible = false;
+				      if (drones_objects[i].children[1].visible) 
+				      	drones_objects[i].children[1].visible = false;
 				      else drones_objects[i].children[1].visible = true;
 			      }
 			};
 			
-			/*function showDroneTrajectories() {
-			      if (droneTrajectories.visible) droneTrajectories.visible = false;
-			      else 
-				{
-					droneTrajectories.visible = true;
-
-					//NOT HERE, but where positions are computed
-					var tempPos = rigidBodies[i].position;
-					//change position
-					var newPos = rigidBodies[i].position;
-					var line = drawLine(newPos,tempPos);
-					//scene.add(line); //already in drawLine?
-				}
-			};*/
-
-			function computeTrajectory(p1, p2, t) {
-				var x = p1.x + (p2.x-p1.x)*t;
-				var y = p1.y + (p2.y-p1.y)*t;
-				var z = p1.z + (p2.z-p1.z)*t;
-
-				return THREE.Vector3(x,y,z);
-			}
-			
-			//see https://jsfiddle.net/lguminski/ctaofqr8/
-			function makeTextLabel(label) {
-				  var text = document.createElement('div');
-				  text.style.color = 'rgb(255, 255, 255)';
-				  text.style.marginTop = '3em';
-				  text.style.marginLeft = '-4em';
-				  text.className = 'label';
-				  text.textContent = label;
-				  return new THREE.CSS2DObject(text);
-			}
+			function showDroneTrajectories() {
+				if (linesT.visible) linesT.visible = false;
+				else linesT.visible = true;
+			};
 
 		       // affichage avec le clavier
 		       window.addEventListener("keydown", function (event) {
@@ -610,6 +619,15 @@
 					  break;
 					case "v":
 					  showVertLines();
+					  break;
+					case "t":
+					  showDroneTrajectories();
+					  break;
+					case "s":
+					  stop = !stop;
+					  break;
+					case "m":
+					  wayStep = listWayStep[15];
 					  break;
 					default:
 					  return;
