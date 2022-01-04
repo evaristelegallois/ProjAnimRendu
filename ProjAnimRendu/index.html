@@ -16,6 +16,7 @@
 			"t" ... Afficher trajectoires<br/>
 			"n" ... Afficher ID<br/>
 			"v" ... Relier au sol<br/>
+			"s" ... Pause animation<br/>
 	</div>
         <div id="container"></div>
         		
@@ -23,6 +24,7 @@
         <script src="../three.js-master/examples/js/controls/OrbitControls.js"></script>
         <script src="../three.js-master/examples/js/controls/PointerLockControls.js"></script> 
         <script src="../three.js-master/examples/js/utils/BufferGeometryUtils.js"></script> 
+        <!-- Labels -->
         <script src="../three.js-master/examples/js/renderers/CSS2DRenderer.js"></script>
         <!-- chargement d'objets 3D et textures -->
         <script src="../three.js-master/examples/js/loaders/OBJLoader.js"></script>
@@ -33,18 +35,19 @@
         <script src="../ammo.js-main/builds/ammo.js"></script>
         
         <script>
-            // Graphics variables
+            		// Graphics variables
 			let container, stats;
 			let camera, controls, scene, renderer, labelRenderer;
 			let textureLoader;
 			let axesHelper, gridHelper; //display grid, axes
 			
+			//Gestion des drones
 			const drones = [], drones3D = [];
 			var json_file;
 			var linesV = new THREE.Group(); //relier au sol
 			const linesT = new THREE.Group(); //trajectoires
 			var drones_objects = [];
-            		var wayStep = [], listWayStep = [];
+            		var wayStep = [];
             		var done = false, stop = false;
            		var scale = 0.01; // mise à l'échelle
             
@@ -61,8 +64,6 @@
 			const rigidBodies = [];
 			const softBodies = [];
 			const margin = 0.05;
-			let transformAux1;
-			let softBodyHelpers;
 
 			Ammo().then( function ( AmmoLib ) 
 			{
@@ -71,6 +72,7 @@
 				animate();
 			} );
 
+			//initialisation
 			function init() 
 			{
 				var client = new XMLHttpRequest();
@@ -85,7 +87,10 @@
 				initInput();
 
 			}
-
+			
+			///Fonctions d'initialisation
+			
+			//initialisation de la partie graphique (objets de la scène)
 			function initGraphics() 
 			{
 				container = document.getElementById( 'container' );
@@ -145,6 +150,7 @@
 				window.addEventListener( 'resize', onWindowResize );
 			}
 
+			//initialisation de la composante physique (pour objets rigides)
 			function initPhysics() 
 			{
 				// Physics configuration
@@ -159,8 +165,20 @@
 				physicsWorld.getWorldInfo().set_m_gravity( 
 					new Ammo.btVector3( 0, gravityConstant, 0 ) );
 
-				transformAux1 = new Ammo.btTransform();
-				softBodyHelpers = new Ammo.btSoftBodyHelpers();
+			}
+			
+			function initInput() 
+			{
+				window.addEventListener( 'pointerdown', function ( event ) {
+					if ( ! clickRequest ) {
+
+						mouseCoords.set(
+							( event.clientX / window.innerWidth ) * 2 - 1,
+							- ( event.clientY / window.innerHeight ) * 2 + 1
+						);
+						clickRequest = true;
+					}
+				} );
 			}
 			
 			// Création des objets de la scène
@@ -236,15 +254,12 @@
 					       // pour affichage ID
 					       var label = makeTextLabel(`D #${i}`);
 						new_object.add(label);
-						
-						// ombres; fait plus loin
-			    			//new_object.castShadow = true;
-			    			//new_object.receiveShadow = true;
 
 					       drones_objects[i] = new_object;
 					       scene.add(new_object);
                         		}
                         		
+                        		//dessin des trajectoires et lignes verticales
                         		drawLineToGround();
                         		drawTrajectories();
 		    		});
@@ -252,11 +267,10 @@
 				// initiation
 				for (var i=0; i < json_file.drones.length; i++) 
 					wayStep[i] = 0;
-				listWayStep.push(wayStep);
 			}
 
 
-    		/* Créer un parallélépipède (par exemple les briques du mur) */
+    			/* Créer un parallélépipède (sol) */
 			function createParalellepiped( sx, sy, sz, mass, pos, quat, material ) 
 			{
 				const threeObject = new THREE.Mesh( 
@@ -270,6 +284,7 @@
 				return threeObject;
 			}
 
+			//créer des objets rigides (pour collision)
 			function createRigidBody( threeObject, physicsShape, mass, pos, quat ) 
 			{
 				threeObject.position.copy( pos );
@@ -303,10 +318,7 @@
 				return body;
 			}
 			
-			function createRandomColor() 
-			{
-				return Math.floor( Math.random() * ( 1 << 24 ) );
-			}
+			///Fonctions de dessin
 			
 			// Dessiner un trait entre deux points
 			function drawLine(p1, p2, col) 
@@ -362,37 +374,15 @@
 				scene.add(linesT);
 			
 			}
-
-			function initInput() 
-			{
-				window.addEventListener( 'pointerdown', function ( event ) {
-
-					if ( ! clickRequest ) {
-
-						mouseCoords.set(
-							( event.clientX / window.innerWidth ) * 2 - 1,
-							- ( event.clientY / window.innerHeight ) * 2 + 1
-						);
-						clickRequest = true;
-					}
-				} );
-			}
-
-			function onWindowResize() 
-			{
-				camera.aspect = window.innerWidth / window.innerHeight;
-				camera.updateProjectionMatrix();
-
-				renderer.setSize( window.innerWidth, window.innerHeight );
-			}
 			
 			function isNext(margin, a, b)
 			{
 			    return (a+margin >= b && a-margin <= b);
 			}   
 			
+			//permet de déterminer si un drone est proche du prochain waypoint
 			function isNextToTheNextCheckPoint(id) 
-			    {   
+			{   
 				var margin = 0.001;
 				var step = wayStep[id];
 
@@ -406,8 +396,18 @@
 				    (json_file["drones"][id]["waypoints"][step+1]["position"]["lat_Z"])*scale);
 
 				return (isNextX && isNextY && isNextZ);
-			    }
-				
+			}
+			
+			//mise à jour de la ligne reliant le drone au sol
+			function updateLineToGround(id) {
+				// mise à jour des lignes verticales
+				var dronePos = drones_objects[id].position;
+				var line = drawLine(dronePos, 
+					new THREE.Vector3(dronePos.x, 0., dronePos.z));
+				linesV.children[id] = line;
+			}
+			
+			//animation d'un drone
 			function animateOneDrone(id)
 			{
 				var step = wayStep[id];
@@ -424,7 +424,7 @@
 					done = true;
 				    	return;
 				}
-
+				
 				for(var i=0; i<3; i++) 
 				{ 
 				    var currentStep = 
@@ -453,16 +453,8 @@
 				
 				updateLineToGround(id);
 			}
-			
-			function updateLineToGround(id) {
-				// mise à jour des lignes verticales
-				var dronePos = drones_objects[id].position;
-				var line = drawLine(dronePos, 
-					new THREE.Vector3(dronePos.x, 0., dronePos.z));
-				linesV.children[id] = line;
-			}
 
-
+			//animation des objets de la scène
 			function animate() 
 			{
 				requestAnimationFrame( animate );
@@ -501,7 +493,6 @@
 			    	for(var i=0; i < json_file.drones.length; i++)
 			        	animateOneDrone(i);
 			        if (!done) listWayStep.push(wayStep);
-			    	//console.log(listWayStep.length); 
 			        }   
 			    
 				render();
@@ -510,35 +501,12 @@
 
 			function render() 
 			{
-				const deltaTime = clock.getDelta();
-				updatePhysics( deltaTime );
 				renderer.render( scene, camera );
 				renderer.shadowMap.enabled = true;
 				labelRenderer.render(scene, camera);
 			}
-
-			function updatePhysics( deltaTime ) 
-			{
-				// Step world
-				physicsWorld.stepSimulation( deltaTime, 10 );
-				
-				// Update rigid bodies
-				for ( let i = 0, il = rigidBodies.length; i < il; i ++ ) {
-
-					const objThree = rigidBodies[ i ];
-					const objPhys = objThree.userData.physicsBody;
-					const ms = objPhys.getMotionState();
-					if ( ms ) {
-
-						ms.getWorldTransform( transformAux1 );
-						const p = transformAux1.getOrigin();
-						const q = transformAux1.getRotation();
-						objThree.position.set( p.x(), p.y(), p.z() );
-						objThree.quaternion.set( q.x(), q.y(), q.z(), q.w() );
-					}
-				}
-			}
 			
+			//chargement du fichier .json
 			function handler()
 			{
 				if (this.status == 200 && this.readyState == 4) {
@@ -557,6 +525,17 @@
 				  text.className = 'label';
 				  text.textContent = label;
 				  return new THREE.CSS2DObject(text);
+			}
+			
+			///Fonctions liées à l'interface
+			
+			//redimensionnement de la fenêtre
+			function onWindowResize() 
+			{
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
 			}
 			
 			// affichage plein écran ("fullscreen")
@@ -625,9 +604,6 @@
 					  break;
 					case "s":
 					  stop = !stop;
-					  break;
-					case "m":
-					  wayStep = listWayStep[15];
 					  break;
 					default:
 					  return;
